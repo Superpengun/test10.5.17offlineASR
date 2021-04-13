@@ -78,8 +78,8 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     cfg.setAppkey("aicp_app");
     // 平台为应用分配的密钥 (敏感信息，请勿公开)
     cfg.setSecret("QWxhZGRpbjpvcGVuIHNlc2FtZQ");
-    cfg.setSysUrl("https://10.1.18.103:22801/");
-    cfg.setCapUrl("http://10.1.18.103:22800/");
+    cfg.setSysUrl("https://10.0.1.186:22801/");
+    cfg.setCapUrl("http://10.0.1.186:22800/");
     cfg.setDataPath(path);
     Log.e("log-path", path);
     cfg.setVerifySSL(false);
@@ -106,8 +106,8 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
 
   private LocalAsrConfig localAsrConfig(){
     LocalAsrConfig config = new LocalAsrConfig();
-    config.setGrammar("");
-    config.setModelPath("");
+    config.setGrammar("/sdcard/sinovoicedata/stock_10001.gram");
+    config.setModelPath("/sdcard/sinovoicedata/model_common_20190722");
     return config;
   }
 
@@ -118,6 +118,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     config.setMode(ft_mode);
     config.setAddPunc(true); // 是否打标点
     config.setTimeout(10000);
+    config.setGrammarOnly(true);
     return config;
   }
 
@@ -161,6 +162,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     } else {
       // 识别会话启动成功后再进行识别
       FreetalkConfig config = freetalkConfig();
+      //LocalAsrConfig config = localAsrConfig();
       session_busy = true;
       printLog("启动识别会话");
       ft_stream.start(config, stream_recorder.audioSource(), this, true);
@@ -339,6 +341,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
       int timelen = shortaudio_recorder.bufferTimeLen();
       ByteBuffer audio_data = shortaudio_recorder.readAll();
       ShortAudioConfig config = shortAudioConfig();
+      //LocalAsrConfig config = localAsrConfig();
       printLog("音频数据长度: " + audio_data.limit());
       printLog("音频数据时长: " + timelen);
       session_busy = true;
