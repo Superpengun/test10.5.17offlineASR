@@ -50,6 +50,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
   static private HciAudioManager am; // 单例模式
   private HciSdk sdk;
   private FreetalkStream ft_stream;
+  //private FreetalkStream ft_grammar;
   private FreetalkShortAudio ft_shortaudio;
   private AudioRecorder stream_recorder;
   private AudioRecorder shortaudio_recorder;
@@ -96,7 +97,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     config.setProperty("cn_16k_common");
     config.setAudioFormat("pcm_s16le_16k");
     config.setMode(ft_mode);
-    config.setAddPunc(true); // 是否打标点
+    //config.setAddPunc(true); // 是否打标点
     config.setInterimResults(interim_results); // 是否返回临时结果
     config.setSlice(200);
     config.setTimeout(10000);
@@ -106,7 +107,15 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
 
   private LocalAsrConfig localAsrConfig(){
     LocalAsrConfig config = new LocalAsrConfig();
-    config.setGrammar("/sdcard/sinovoicedata/stock_10001.gram");
+    config.setGrammar("" +
+            "#JSGF V1.0;\n" +
+            "\n" +
+            "grammar stock_1001;\n" +
+            "\n" +
+            "public <stock_1001> = open |\n" +
+            "万东医疗|\n" +
+            "三峡水利;"
+    );
     config.setModelPath("/sdcard/sinovoicedata/model_common_20190722");
     return config;
   }
@@ -129,8 +138,19 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     setContentView(R.layout.activity_main);
 
     sdk = createSdk(this);
-    ft_stream = new FreetalkStream(sdk, new CloudAsrConfig());
-    ft_shortaudio = new FreetalkShortAudio(sdk, new CloudAsrConfig());
+    //ft_grammar = new FreetalkStream(sdk,new LocalAsrConfig());
+    LocalAsrConfig localAsrConfig = new LocalAsrConfig();
+    localAsrConfig.setModelPath("/sdcard/sinovoicedata/model_common_20190722");
+    localAsrConfig.setGrammar("" +
+            "#JSGF V1.0;\n" +
+            "\n" +
+            "grammar stock_1001;\n" +
+            "\n" +
+            "public <stock_1001> = open |\n" +
+            "添气如何|\n" +
+            "三峡水利;");
+    ft_stream = new FreetalkStream(sdk, localAsrConfig);
+    //ft_shortaudio = new FreetalkShortAudio(sdk, new CloudAsrConfig());
     if (am == null) {
       // HciAudioManager 只能创建一个实例
       am = HciAudioManager.builder(this).setSampleRate(16000).create();
@@ -166,6 +186,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
       session_busy = true;
       printLog("启动识别会话");
       ft_stream.start(config, stream_recorder.audioSource(), this, true);
+     // ft_grammar.start(config,stream_recorder.audioSource(),this,true);
     }
   }
 

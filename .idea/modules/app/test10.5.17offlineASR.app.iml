@@ -42,5 +42,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Gradle: ./app/libs/hci-android.jar" level="project" />
     <orderEntry type="library" name="Gradle: ./app/libs/hci.jar" level="project" />
+    <orderEntry type="library" name="Gradle: org.jetbrains:annotations-java5:15.0" level="project" />
   </component>
 </module>
