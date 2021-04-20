@@ -61,6 +61,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
   private boolean recording = false;
   private boolean operating = false;
   private int ft_mode;
+  private int UTTERANCE_STREAM_MODE;
   private boolean interim_results;
   private Thread mUiThread;
 
@@ -79,8 +80,8 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     cfg.setAppkey("aicp_app");
     // 平台为应用分配的密钥 (敏感信息，请勿公开)
     cfg.setSecret("QWxhZGRpbjpvcGVuIHNlc2FtZQ");
-    cfg.setSysUrl("https://10.0.1.186:22801/");
-    cfg.setCapUrl("http://10.0.1.186:22800/");
+    cfg.setSysUrl("https://10.0.1.186:22801");
+    cfg.setCapUrl("http://10.0.1.186:22800");
     cfg.setDataPath(path);
     Log.e("log-path", path);
     cfg.setVerifySSL(false);
@@ -97,28 +98,31 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     config.setProperty("cn_16k_common");
     config.setAudioFormat("pcm_s16le_16k");
     config.setMode(ft_mode);
-    //config.setAddPunc(true); // 是否打标点
-    config.setInterimResults(interim_results); // 是否返回临时结果
+    config.setAddPunc(true); // 是否打标点
+    config.setInterimResults(true);// 是否返回临时结果
     config.setSlice(200);
-    config.setTimeout(10000);
+    config.setTimeout(1000);
+    //config.setVadTail(777);
+    //config.setVadTail(200);
+    config.setOutputTag(3);
     Log.w("config", config.toString());
     return config;
   }
 
-  private LocalAsrConfig localAsrConfig(){
-    LocalAsrConfig config = new LocalAsrConfig();
-    config.setGrammar("" +
-            "#JSGF V1.0;\n" +
-            "\n" +
-            "grammar stock_1001;\n" +
-            "\n" +
-            "public <stock_1001> = open |\n" +
-            "万东医疗|\n" +
-            "三峡水利;"
-    );
-    config.setModelPath("/sdcard/sinovoicedata/model_common_20190722");
-    return config;
-  }
+//  private LocalAsrConfig localAsrConfig(){
+//    LocalAsrConfig config = new LocalAsrConfig();
+//    config.setGrammar("" +
+//            "#JSGF V1.0;\n" +
+//            "\n" +
+//            "grammar stock_1001;\n" +
+//            "\n" +
+//            "public <stock_1001> = open |\n" +
+//            "万东医疗|\n" +
+//            "三峡水利;"
+//    );
+//    config.setModelPath("/sdcard/sinovoicedata/model_common_20190722");
+//    return config;
+//  }
 
   private ShortAudioConfig shortAudioConfig() {
     ShortAudioConfig config = new ShortAudioConfig();
@@ -126,8 +130,9 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     config.setAudioFormat("pcm_s16le_16k");
     config.setMode(ft_mode);
     config.setAddPunc(true); // 是否打标点
-    config.setTimeout(10000);
-    config.setGrammarOnly(true);
+    config.setTimeout(1000);
+    config.setOutputTag(3);
+    //config.setGrammarOnly(true);
     return config;
   }
 
@@ -140,17 +145,17 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     sdk = createSdk(this);
     //ft_grammar = new FreetalkStream(sdk,new LocalAsrConfig());
     LocalAsrConfig localAsrConfig = new LocalAsrConfig();
-    localAsrConfig.setModelPath("/sdcard/sinovoicedata/model_common_20190722");
+    localAsrConfig.setModelPath("/sdcard/sinovoicedata/model_common_20210331");
     localAsrConfig.setGrammar("" +
             "#JSGF V1.0;\n" +
             "\n" +
             "grammar stock_1001;\n" +
             "\n" +
-            "public <stock_1001> = open |\n" +
-            "添气如何|\n" +
-            "三峡水利;");
+            "public <stock_1001> = <open> <word>;\n" +
+            "<open> = (打开|拿起);"+
+            "<word> = (天气预报|水煮鱼|早茶);");
     ft_stream = new FreetalkStream(sdk, localAsrConfig);
-    //ft_shortaudio = new FreetalkShortAudio(sdk, new CloudAsrConfig());
+    ft_shortaudio = new FreetalkShortAudio(sdk, localAsrConfig);
     if (am == null) {
       // HciAudioManager 只能创建一个实例
       am = HciAudioManager.builder(this).setSampleRate(16000).create();
