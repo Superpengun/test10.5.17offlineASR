@@ -1,7 +1,12 @@
 package com.example.asr_demo;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
+import android.nfc.Tag;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -17,6 +22,9 @@ import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
+
+import com.hjq.permissions.OnPermission;
+import com.hjq.permissions.XXPermissions;
 import com.sinovoice.sdk.HciSdk;
 import com.sinovoice.sdk.HciSdkConfig;
 import com.sinovoice.sdk.LogLevel;
@@ -35,9 +43,12 @@ import com.sinovoice.sdk.asr.LocalAsrConfig;
 import com.sinovoice.sdk.asr.ShortAudioConfig;
 import com.sinovoice.sdk.asr.Warning;
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 public class MainActivity extends Activity implements IAudioRecorderHandler, IFreetalkHandler {
   // 纵向滑动灵敏度，按下录音按钮后向上滑动距离大于改值后松后调用取消识别方法，其余调用开始识别方法
@@ -54,6 +65,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
   private FreetalkShortAudio ft_shortaudio;
   private AudioRecorder stream_recorder;
   private AudioRecorder shortaudio_recorder;
+  private ByteBuffer grammar;
   private TextView tv_logview;
   private ImageView iv_cancel;
   private Spinner sp_mode;
@@ -98,13 +110,14 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     config.setProperty("cn_16k_common");
     config.setAudioFormat("pcm_s16le_16k");
     config.setMode(ft_mode);
-    config.setAddPunc(true); // 是否打标点
-    config.setInterimResults(true);// 是否返回临时结果
+    //config.setAddPunc(true); // 是否打标点
+    //config.setInterimResults(true);// 是否返回临时结果
     config.setSlice(200);
     config.setTimeout(1000);
     //config.setVadTail(777);
     //config.setVadTail(200);
     config.setOutputTag(3);
+    //config.setGrammarOnly(true);
     Log.w("config", config.toString());
     return config;
   }
@@ -131,13 +144,41 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     config.setMode(ft_mode);
     config.setAddPunc(true); // 是否打标点
     config.setTimeout(1000);
-    config.setOutputTag(3);
-    //config.setGrammarOnly(true);
+    config.setOutputTag(1);
+    config.setGrammarOnly(true);
     return config;
   }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    //申请权限
+    XXPermissions.with(this)
+            .permission(Manifest.permission.ACCESS_NETWORK_STATE)
+            .permission(Manifest.permission.RECORD_AUDIO)
+            .permission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            .request(new OnPermission() {
+
+              @Override
+              public void hasPermission(List<String> granted, boolean all) {
+                if (all) {
+                  printLog("获取权限成功");
+                } else {
+                  printLog("获取部分权限成功，但部分权限未正常授予");
+                }
+              }
+
+              public void noPermission(List<String> denied, boolean never) {
+                if (never) {
+                  printLog("被永久拒绝授权，请手动授予权限");
+                  // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                  XXPermissions.startPermissionActivity(MainActivity.this, denied);
+                } else {
+                  printLog("获取权限失败");
+                }
+              }
+            });
+
+
     mUiThread = Thread.currentThread();
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
@@ -147,13 +188,24 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     LocalAsrConfig localAsrConfig = new LocalAsrConfig();
     localAsrConfig.setModelPath("/sdcard/sinovoicedata/model_common_20210331");
     localAsrConfig.setGrammar("" +
+//            "#JSGF V1.0;\n" +
+//            "\n" +
+//            "grammar stock_1001;\n" +
+//            "\n" +
+//            "public <stock_1001> = <open> <word>;\n" +
+//            "<open> = (打开|拿起);"+
+//            "<word> = (天气预报|水煮鱼|早茶);");
             "#JSGF V1.0;\n" +
-            "\n" +
-            "grammar stock_1001;\n" +
-            "\n" +
-            "public <stock_1001> = <open> <word>;\n" +
-            "<open> = (打开|拿起);"+
-            "<word> = (天气预报|水煮鱼|早茶);");
+            "grammar com.sinovoice.aiot.autogeneration.CarLib;\n" +
+            "public <chezai> = <all_sentence>;\n" +
+            "<all_sentence> = <dial_contactname> | <map_zoomOut> |<next_channel>;\n" +
+            "<dial_contactname>  = <dial_contactname_dial> <dial_contactname_contactname>;\n" +
+            "<dial_contactname_dial> = (打电话给);\n" +
+            "<dial_contactname_contactname> = (张三|李四|王五|1|0|十);\n" +
+            "<map_zoomOut>  = (地图放大);\n" +
+            "<next_channel> = <next_channel2>;\n" +
+            "<next_channel2> = <next_channel3>;" +
+            "<next_channel3> = (水煮鱼);");
     ft_stream = new FreetalkStream(sdk, localAsrConfig);
     ft_shortaudio = new FreetalkShortAudio(sdk, localAsrConfig);
     if (am == null) {
@@ -168,7 +220,11 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     tv_logview = (TextView) findViewById(R.id.tv_logview);
     iv_cancel = (ImageView) findViewById(R.id.iv_cancel);
     sp_mode = (Spinner) findViewById(R.id.sp_mode);
-
+    try {
+      readJSGF();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
     initEvents();
   }
 
@@ -207,6 +263,7 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
     }
   }
 
+  @SuppressLint("ClickableViewAccessibility")
   private void initEvents() {
     Button btn;
 
@@ -378,7 +435,8 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
           if (code != 0) {
             printLog("一句话识别失败，code = " + code);
           } else {
-            printLog("一句话识别成功，result = " + res.toString());
+            printLog("一句话识别成功，result = " + res.textResult().toString());
+            Log.d("123", "run: 111111"+res.textResult().toString());
           }
         }
       });
@@ -434,5 +492,20 @@ public class MainActivity extends Activity implements IAudioRecorderHandler, IFr
   public void onResult(FreetalkStream s, FreetalkResult sentence) {
     // sentence 仅可在本回调内使用，如果需要缓存 sentence，请调用 sentence.clone()
     printLog("FreetalkStream 识别结果，sentence = " + sentence.toString());
+    Log.d("wqx",sentence.toString());
   }
+
+  //20210428增加读取本地资源文件接口
+  @TargetApi(Build.VERSION_CODES.KITKAT)
+  public  void readJSGF() throws IOException {
+    grammar=HciSdk.readFile("/sdcard/sinovoicedata/stock_10001.gram");
+    String s = StandardCharsets.UTF_8.decode(grammar).toString();
+    printLog(s);
+
+  }
+
+
+
 }
+
+
